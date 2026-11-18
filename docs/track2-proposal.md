@@ -1,0 +1,3 @@
+# Track 2 proposal: CI/CD with GitHub Actions
+
+I will build a GitHub Actions pipeline that runs the automated tests on every push and pull request, then deploys the app to Azure App Service (F1, free) after each successful push to `main`. The workflow will sign in to Azure with OpenID Connect through a Microsoft Entra app registration, so no Azure password or publish profile is stored in the repository. It uses GitHub Actions, Azure App Service, and Microsoft Entra ID at no expected cost to my Azure credit. To show it working, I will push a small visible change, then present the passing workflow run, the failed deployment that a broken test prevents, and the update on the live HTTPS site.

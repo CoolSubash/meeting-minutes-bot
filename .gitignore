@@ -1,0 +1,13 @@
+.env
+.venv/
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+temp_audio/
+*.wav
+*.mp3
+*.webm
+deployment_logs.zip
+.DS_Store
+.azure/

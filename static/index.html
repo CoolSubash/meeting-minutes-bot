@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meeting Minutes Bot</title>
+<style>
+  :root { --ink:#1d2433; --muted:#5b6475; --line:#d9dee8; --bg:#f5f7fb; --card:#fff; --accent:#1f5fbf; --warn:#9a5b00; --warn-bg:#fff4df; --bad:#b3261e; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  main { max-width:860px; margin:0 auto; padding:32px 16px 64px; }
+  h1 { margin:0; font-size:28px; } h2 { margin:0 0 12px; font-size:18px; }
+  .lead { margin:4px 0 24px; color:var(--muted); }
+  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:20px; margin-bottom:16px; }
+  .fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin-bottom:16px; }
+  label { display:block; font-size:14px; font-weight:600; }
+  input,select { width:100%; margin-top:4px; padding:9px; border:1px solid var(--line); border-radius:6px; font:inherit; background:#fff; color:inherit; }
+  button,.button { display:inline-block; padding:9px 14px; border:1px solid var(--accent); border-radius:6px; background:#fff; color:var(--accent); font:inherit; font-weight:600; cursor:pointer; text-decoration:none; }
+  button.primary { background:var(--accent); color:#fff; } button:disabled { opacity:.55; cursor:not-allowed; }
+  button.danger { border-color:var(--bad); color:var(--bad); }
+  .row { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+  #status { min-height:24px; margin:12px 0 0; color:var(--muted); } #status.error { color:var(--bad); font-weight:600; }
+  table { width:100%; border-collapse:collapse; font-size:15px; } th,td { padding:8px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+  .table-wrap { overflow-x:auto; }
+  .tag { display:inline-block; margin:0 6px 6px 0; padding:2px 9px; border-radius:999px; background:#e8effa; font-size:14px; }
+  .review { color:var(--warn); background:var(--warn-bg); padding:2px 7px; border-radius:5px; font-size:13px; font-weight:600; white-space:nowrap; }
+  .meta { color:var(--muted); font-size:14px; } audio { width:100%; margin-top:8px; } [hidden] { display:none !important; }
+  h3 { margin:20px 0 8px; font-size:15px; } ul { margin:0; padding-left:20px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Meeting Minutes Bot</h1>
+  <p class="lead">Turn a short meeting recording into decisions, action items, and calendar reminders.</p>
+
+  <section aria-labelledby="new-heading">
+    <h2 id="new-heading">New meeting</h2>
+    <div class="fields">
+      <label>Title <input id="title" maxlength="120" placeholder="Sprint planning"></label>
+      <label>Meeting date <input id="date" type="date"></label>
+      <label>Recap voice
+        <select id="voice">
+          <option value="en-US-JennyNeural">Jenny (friendly)</option>
+          <option value="en-US-GuyNeural">Guy (formal)</option>
+          <option value="en-US-AriaNeural">Aria (energetic)</option>
+        </select>
+      </label>
+    </div>
+    <div class="row">
+      <button id="record" type="button">Start recording</button>
+      <span id="timer" class="meta" aria-live="polite"></span>
+      <label>Or upload audio <input id="file" type="file" accept=".wav,.mp3,.webm,.ogg,.m4a,.aac,audio/*"></label>
+    </div>
+    <p class="meta">Recordings can be up to 3 minutes long.</p>
+    <button id="submit" class="primary" type="button" disabled>Create minutes</button>
+    <p id="status" role="status"></p>
+  </section>
+
+  <section id="results" aria-labelledby="results-title" hidden>
+    <h2 id="results-title"></h2>
+    <p id="result-meta" class="meta"></p>
+    <div class="row">
+      <a id="export-md" class="button">Download Markdown</a>
+      <a id="export-ics" class="button">Download calendar</a>
+    </div>
+    <audio id="player" controls hidden></audio>
+    <h3>Decisions</h3><ul id="decisions"></ul>
+    <h3>Action items</h3>
+    <div class="table-wrap"><table><thead><tr><th>Task</th><th>Owner</th><th>Due</th><th>Status</th></tr></thead><tbody id="items"></tbody></table></div>
+    <h3>Key phrases</h3><div id="phrases"></div>
+    <h3>Named entities</h3>
+    <div class="table-wrap"><table><thead><tr><th>Text</th><th>Type</th><th>Confidence</th></tr></thead><tbody id="entities"></tbody></table></div>
+    <h3>Transcript</h3><p id="transcript"></p>
+  </section>
+
+  <section aria-labelledby="history-heading">
+    <h2 id="history-heading">Meeting history</h2>
+    <div class="table-wrap"><table><thead><tr><th>Meeting</th><th>Date</th><th>Decisions</th><th>Tasks</th><th></th></tr></thead><tbody id="history"></tbody></table></div>
+    <p id="history-empty" class="meta">No meetings saved yet.</p>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const MAX_SECONDS = 180;
+let recorder, recordedBlob = null, timerId;
+
+$("date").value = new Date().toLocaleDateString("en-CA");
+
+function setStatus(message, isError = false) {
+  $("status").textContent = message;
+  $("status").classList.toggle("error", isError);
+}
+function refreshSubmit() { $("submit").disabled = !(recordedBlob || $("file").files.length); }
+function cell(row, value) { const td = document.createElement("td"); td.textContent = value; row.appendChild(td); return td; }
+function fill(id, nodes) { $(id).replaceChildren(...nodes); }
+
+async function api(path, options) {
+  const response = await fetch(path, options);
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.error || "The request failed.");
+  return body;
+}
+
+$("record").addEventListener("click", async () => {
+  if (recorder && recorder.state === "recording") { recorder.stop(); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const chunks = [];
+    recorder = new MediaRecorder(stream);
+    recorder.ondataavailable = event => chunks.push(event.data);
+    recorder.onstop = () => {
+      clearInterval(timerId);
+      stream.getTracks().forEach(track => track.stop());
+      recordedBlob = new Blob(chunks, { type: recorder.mimeType });
+      $("file").value = "";
+      $("record").textContent = "Record again";
+      $("timer").textContent = "Recording ready";
+      refreshSubmit();
+    };
+    recorder.start();
+    let seconds = 0;
+    $("record").textContent = "Stop recording";
+    $("timer").textContent = "0:00";
+    timerId = setInterval(() => {
+      seconds += 1;
+      $("timer").textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+      if (seconds >= MAX_SECONDS) recorder.stop();
+    }, 1000);
+  } catch {
+    setStatus("Microphone access was blocked. Allow it in your browser, or upload a file.", true);
+  }
+});
+
+$("file").addEventListener("change", () => {
+  if ($("file").files.length) { recordedBlob = null; $("timer").textContent = ""; }
+  refreshSubmit();
+});
+
+$("submit").addEventListener("click", async () => {
+  const form = new FormData();
+  if (recordedBlob) {
+    const extension = recordedBlob.type.includes("ogg") ? "ogg" : recordedBlob.type.includes("mp4") ? "m4a" : "webm";
+    form.append("audio", recordedBlob, `recording.${extension}`);
+  } else {
+    form.append("audio", $("file").files[0]);
+  }
+  form.append("title", $("title").value);
+  form.append("meeting_date", $("date").value);
+  form.append("voice", $("voice").value);
+
+  $("submit").disabled = true;
+  setStatus("Creating minutes. This can take up to a few minutes.");
+  try {
+    const meeting = await api("/process", { method: "POST", body: form });
+    showMeeting(meeting);
+    setStatus("Minutes are ready.");
+    loadHistory();
+  } catch (error) {
+    setStatus(error.message, true);
+  } finally {
+    refreshSubmit();
+  }
+});
+
+function showMeeting(meeting) {
+  $("results").hidden = false;
+  $("results-title").textContent = meeting.title;
+  $("result-meta").textContent = `${meeting.meeting_date} · ${meeting.sentiment.label} tone (${Math.round(meeting.sentiment.score * 100)}%) · ${Math.round(meeting.confidence * 100)}% transcription confidence`;
+  $("export-md").href = `/meetings/${encodeURIComponent(meeting.meeting_id)}/export?format=md`;
+  $("export-ics").href = `/meetings/${encodeURIComponent(meeting.meeting_id)}/export?format=ics`;
+  $("export-ics").hidden = !meeting.action_items.some(item => item.due_date);
+
+  $("player").hidden = !meeting.summary_audio;
+  if (meeting.summary_audio) $("player").src = "data:audio/mp3;base64," + meeting.summary_audio;
+  else $("player").removeAttribute("src");
+
+  const decisions = meeting.decisions.map(d => { const li = document.createElement("li"); li.textContent = d.text; return li; });
+  if (!decisions.length) { const li = document.createElement("li"); li.textContent = "No decisions found."; decisions.push(li); }
+  fill("decisions", decisions);
+
+  fill("items", meeting.action_items.map(item => {
+    const row = document.createElement("tr");
+    cell(row, item.task); cell(row, item.owner || "Unassigned"); cell(row, item.due_date || "No date");
+    const status = cell(row, item.needs_review ? "" : "Ready");
+    if (item.needs_review) { const badge = document.createElement("span"); badge.className = "review"; badge.textContent = "Needs review"; status.appendChild(badge); }
+    return row;
+  }));
+
+  fill("phrases", meeting.key_phrases.map(phrase => { const tag = document.createElement("span"); tag.className = "tag"; tag.textContent = phrase; return tag; }));
+  fill("entities", meeting.entities.map(entity => {
+    const row = document.createElement("tr");
+    cell(row, entity.text); cell(row, entity.category); cell(row, `${Math.round(entity.confidence * 100)}%`);
+    return row;
+  }));
+  $("transcript").textContent = meeting.transcript;
+  $("results").scrollIntoView({ behavior: "smooth" });
+}
+
+async function loadHistory() {
+  try {
+    const { meetings } = await api("/meetings");
+    $("history-empty").hidden = meetings.length > 0;
+    fill("history", meetings.map(meeting => {
+      const row = document.createElement("tr");
+      const name = cell(row, "");
+      const open = document.createElement("button");
+      open.type = "button"; open.textContent = meeting.title;
+      open.addEventListener("click", async () => showMeeting(await api(`/meetings/${encodeURIComponent(meeting.meeting_id)}`)));
+      name.appendChild(open);
+      cell(row, meeting.meeting_date); cell(row, meeting.decision_count); cell(row, meeting.action_item_count);
+      const remove = document.createElement("button");
+      remove.type = "button"; remove.className = "danger"; remove.textContent = "Delete";
+      remove.setAttribute("aria-label", `Delete ${meeting.title}`);
+      remove.addEventListener("click", async () => {
+        if (!confirm(`Delete "${meeting.title}"?`)) return;
+        await api(`/meetings/${encodeURIComponent(meeting.meeting_id)}`, { method: "DELETE" });
+        $("results").hidden = true;
+        loadHistory();
+      });
+      cell(row, "").appendChild(remove);
+      return row;
+    }));
+  } catch (error) {
+    setStatus(error.message, true);
+  }
+}
+loadHistory();
+</script>
+</body>
+</html>
