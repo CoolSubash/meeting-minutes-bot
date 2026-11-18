@@ -6,7 +6,7 @@ import pytest
 
 from minutes import extract_minutes
 
-SCRIPT_FILE = Path(__file__).resolve().parents[1] / "docs" / "test-scripts.md"
+SCRIPT_FILE = Path(__file__).resolve().parent / "fixtures" / "recording-scripts.md"
 SECTION = re.compile(
     r"Expected: (\d+) decisions?, (\d+) action items?(?:, (\d+) marked for review)?\.\n\n> (.+)"
 )
