@@ -1,0 +1,180 @@
+{
+  "action_item_count": 4,
+  "action_items": [
+    {
+      "due_date": "2026-11-20",
+      "id": "a1",
+      "needs_review": false,
+      "owner": "Maya",
+      "task": "Finish the login page"
+    },
+    {
+      "due_date": "2026-11-24",
+      "id": "a2",
+      "needs_review": false,
+      "owner": "Jordan",
+      "task": "Write the API test"
+    },
+    {
+      "due_date": "2026-11-25",
+      "id": "a3",
+      "needs_review": false,
+      "owner": "Priya",
+      "task": "Update the deployment client"
+    },
+    {
+      "due_date": "2026-11-19",
+      "id": "a4",
+      "needs_review": false,
+      "owner": "Lou",
+      "task": "Review the pull request"
+    }
+  ],
+  "confidence": 0.694,
+  "decision_count": 2,
+  "decisions": [
+    {
+      "text": "Release version 2 on December 1"
+    },
+    {
+      "text": "Hold the box bass in the main lab"
+    }
+  ],
+  "duration_seconds": 28.94,
+  "entities": [
+    {
+      "category": "Organization",
+      "confidence": 0.99,
+      "offset": 19,
+      "subcategory": null,
+      "text": "Sprint Planning"
+    },
+    {
+      "category": "Quantity",
+      "confidence": 0.8,
+      "offset": 90,
+      "subcategory": "Number",
+      "text": "2"
+    },
+    {
+      "category": "DateTime",
+      "confidence": 0.99,
+      "offset": 95,
+      "subcategory": "Date",
+      "text": "December 1."
+    },
+    {
+      "category": "Product",
+      "confidence": 0.83,
+      "offset": 129,
+      "subcategory": null,
+      "text": "box bass"
+    },
+    {
+      "category": "Location",
+      "confidence": 0.67,
+      "offset": 150,
+      "subcategory": "Structural",
+      "text": "lab"
+    },
+    {
+      "category": "Person",
+      "confidence": 0.97,
+      "offset": 155,
+      "subcategory": null,
+      "text": "Maya"
+    },
+    {
+      "category": "DateTime",
+      "confidence": 0.91,
+      "offset": 187,
+      "subcategory": "DateRange",
+      "text": "by Friday"
+    },
+    {
+      "category": "Location",
+      "confidence": 1,
+      "offset": 198,
+      "subcategory": "CountryRegion",
+      "text": "Jordan"
+    },
+    {
+      "category": "DateTime",
+      "confidence": 0.98,
+      "offset": 229,
+      "subcategory": "DateRange",
+      "text": "by next Tuesday"
+    },
+    {
+      "category": "Person",
+      "confidence": 1,
+      "offset": 246,
+      "subcategory": null,
+      "text": "Priya"
+    },
+    {
+      "category": "DateTime",
+      "confidence": 1,
+      "offset": 289,
+      "subcategory": "DateRange",
+      "text": "by November 25."
+    },
+    {
+      "category": "Person",
+      "confidence": 0.98,
+      "offset": 305,
+      "subcategory": null,
+      "text": "Lou"
+    },
+    {
+      "category": "DateTime",
+      "confidence": 0.99,
+      "offset": 345,
+      "subcategory": "DateRange",
+      "text": "by tomorrow"
+    },
+    {
+      "category": "DateTime",
+      "confidence": 0.99,
+      "offset": 381,
+      "subcategory": "Date",
+      "text": "today"
+    }
+  ],
+  "key_phrases": [
+    "Sprint Planning everyone",
+    "box bass",
+    "main lab",
+    "login page",
+    "API test",
+    "next Tuesday",
+    "deployment client",
+    "pull request",
+    "version",
+    "December",
+    "Maya",
+    "Friday",
+    "Jordan",
+    "Priya",
+    "November",
+    "Lou",
+    "tomorrow",
+    "everything",
+    "today"
+  ],
+  "language": "en-US",
+  "meeting_date": "2026-11-18",
+  "meeting_id": "m-20261118-39aa16b6",
+  "sentiment": {
+    "label": "positive",
+    "score": 0.81,
+    "scores": {
+      "negative": 0,
+      "neutral": 0.18,
+      "positive": 0.81
+    }
+  },
+  "summary_text": "This meeting produced 2 decisions and 4 action items. It covered 19 key topics, including Sprint Planning everyone, box bass and main lab. The overall tone was positive. I detected 1 organization, 1 quantity, 2 locations, 3 people, 6 dates.",
+  "title": "Sprint planning",
+  "transcript": "Thanks for joining Sprint Planning everyone who decided to. We decided to release version 2 on December 1. We agreed to hold the box bass in the main lab. Maya will finish the login page by Friday. Jordan will write the API test by next Tuesday. Priya need to update the deployment client by November 25. Lou is going to review the pull request by tomorrow. That is everything for today."
+}
