@@ -39,10 +39,10 @@ Create the Azure resources. This also writes your `.env` file:
 ```bash
 az login
 ./scripts/provision.sh <globally-unique-app-name>
-python app.py
+PORT=5001 python app.py
 ```
 
-Open http://localhost:5000.
+Open http://localhost:5001. Port 5001 avoids the macOS AirPlay service, which often uses port 5000.
 
 The resources use `northcentralus` because this Azure for Students subscription does not allow `eastus`. Set `AZURE_LOCATION` before running the script to use another allowed region.
 
@@ -73,7 +73,7 @@ To turn on automatic deployment after the repository is on GitHub:
 | `GET /telemetry-summary` | View session health |
 
 ```bash
-curl -X POST http://localhost:5000/process \
+curl -X POST http://localhost:5001/process \
   -F "audio=@recording.wav" -F "title=Sprint planning" -F "meeting_date=2026-11-18"
 ```
 
