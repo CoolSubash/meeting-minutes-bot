@@ -35,6 +35,9 @@ az cognitiveservices account show --name "$LANGUAGE" --resource-group "$RG" --ou
 echo "Creating Log Analytics and Application Insights..."
 az monitor log-analytics workspace create --resource-group "$RG" \
   --workspace-name "$WORKSPACE" --location "$LOCATION" --output none
+# Cap log ingestion at 0.1 GB a day, well under the 5 GB a month free allowance.
+az monitor log-analytics workspace update --resource-group "$RG" \
+  --workspace-name "$WORKSPACE" --quota 0.1 --output none
 WORKSPACE_ID=$(az monitor log-analytics workspace show --resource-group "$RG" \
   --workspace-name "$WORKSPACE" --query id --output tsv)
 az monitor app-insights component create --app "$INSIGHTS" --location "$LOCATION" \
@@ -69,6 +72,9 @@ LANGUAGE_ENDPOINT=$(az cognitiveservices account show --name "$LANGUAGE" --resou
 INSIGHTS_CONNECTION=$(az monitor app-insights component show --app "$INSIGHTS" --resource-group "$RG" --query connectionString --output tsv)
 COSMOS_ENDPOINT=$(az cosmosdb show --name "$COSMOS" --resource-group "$RG" --query documentEndpoint --output tsv)
 COSMOS_KEY=$(az cosmosdb keys list --name "$COSMOS" --resource-group "$RG" --query primaryMasterKey --output tsv)
+# Reuse the existing key so running this script again does not sign everyone out.
+FLASK_SECRET_KEY=$(grep -s '^FLASK_SECRET_KEY=' .env | cut -d= -f2- || true)
+FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-$(openssl rand -hex 32)}
 
 umask 077
 cat > .env <<EOF
@@ -79,6 +85,7 @@ AZURE_LANGUAGE_ENDPOINT=$LANGUAGE_ENDPOINT
 APPLICATIONINSIGHTS_CONNECTION_STRING=$INSIGHTS_CONNECTION
 COSMOS_ENDPOINT=$COSMOS_ENDPOINT
 COSMOS_KEY=$COSMOS_KEY
+FLASK_SECRET_KEY=$FLASK_SECRET_KEY
 EOF
 echo "Local settings saved to .env."
 
@@ -110,7 +117,10 @@ az webapp config appsettings set --resource-group "$RG" --name "$APP_NAME" --out
   APPLICATIONINSIGHTS_CONNECTION_STRING="$INSIGHTS_CONNECTION" \
   COSMOS_ENDPOINT="$COSMOS_ENDPOINT" \
   COSMOS_KEY="$COSMOS_KEY" \
+  FLASK_SECRET_KEY="$FLASK_SECRET_KEY" \
   SCM_DO_BUILD_DURING_DEPLOYMENT=true
-az webapp config set --resource-group "$RG" --name "$APP_NAME" --startup-file "startup.sh" --output none
+az webapp config set --resource-group "$RG" --name "$APP_NAME" --startup-file "bash startup.sh" --output none
+# The site is reachable only over HTTPS.
+az webapp update --resource-group "$RG" --name "$APP_NAME" --https-only true --output none
 
 echo "Done. Deploy with: ./scripts/deploy.sh $APP_NAME"

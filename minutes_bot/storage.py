@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 
-from errors import PipelineError
+from .errors import PipelineError
 
 TTL_SECONDS = 30 * 24 * 60 * 60
 SUMMARY_FIELDS = ("id", "title", "meeting_date", "decision_count", "action_item_count")
@@ -26,12 +26,23 @@ def _public(meeting: dict) -> dict:
 class MemoryStore:
     def __init__(self) -> None:
         self.meetings: dict[str, dict] = {}
+        self.users: dict[str, dict] = {}
+
+    def create_user(self, user: dict) -> bool:
+        if user["id"] in self.users:
+            return False
+        self.users[user["id"]] = user
+        return True
+
+    def get_user(self, user_id: str) -> dict | None:
+        return self.users.get(user_id)
 
     def save(self, meeting: dict) -> None:
         self.meetings[meeting["id"]] = meeting
 
-    def list(self) -> list[dict]:
-        ordered = sorted(self.meetings.values(), key=lambda m: m["meeting_date"], reverse=True)
+    def list(self, owner_id: str | None = None) -> list[dict]:
+        owned = [m for m in self.meetings.values() if m.get("owner_id") == owner_id]
+        ordered = sorted(owned, key=lambda m: m["meeting_date"], reverse=True)
         return [_summary(meeting) for meeting in ordered]
 
     def get(self, meeting_id: str) -> dict | None:
@@ -53,13 +64,39 @@ class CosmosStore:
             default_ttl=TTL_SECONDS,
             offer_throughput=400,
         )
+        # Accounts have no default TTL, so they do not expire with the meetings.
+        self.users = database.create_container_if_not_exists(
+            id=os.environ.get("COSMOS_USERS_CONTAINER", "users"),
+            partition_key=PartitionKey(path="/id"),
+            offer_throughput=400,
+        )
+
+    def create_user(self, user: dict) -> bool:
+        from azure.cosmos.exceptions import CosmosResourceExistsError
+
+        try:
+            self.users.create_item(user)
+            return True
+        except CosmosResourceExistsError:
+            return False
+
+    def get_user(self, user_id: str) -> dict | None:
+        from azure.cosmos.exceptions import CosmosResourceNotFoundError
+
+        try:
+            return _public(self.users.read_item(user_id, partition_key=user_id))
+        except CosmosResourceNotFoundError:
+            return None
 
     def save(self, meeting: dict) -> None:
         self.container.upsert_item(meeting)
 
-    def list(self) -> list[dict]:
-        query = f"SELECT {', '.join('c.' + field for field in SUMMARY_FIELDS)} FROM c ORDER BY c.meeting_date DESC"
-        items = self.container.query_items(query, enable_cross_partition_query=True)
+    def list(self, owner_id: str | None = None) -> list[dict]:
+        owner_filter = "c.owner_id = @owner_id" if owner_id else "NOT IS_DEFINED(c.owner_id)"
+        fields = ", ".join("c." + field for field in SUMMARY_FIELDS)
+        query = f"SELECT {fields} FROM c WHERE {owner_filter} ORDER BY c.meeting_date DESC"
+        parameters = [{"name": "@owner_id", "value": owner_id}] if owner_id else []
+        items = self.container.query_items(query, parameters=parameters, enable_cross_partition_query=True)
         return [_summary(item) for item in items]
 
     def get(self, meeting_id: str) -> dict | None:

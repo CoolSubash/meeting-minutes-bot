@@ -7,7 +7,7 @@ from azure.ai.textanalytics import TextAnalyticsClient
 from azure.core.credentials import AzureKeyCredential
 from azure.core.exceptions import AzureError
 
-from errors import PipelineError
+from .errors import PipelineError
 
 CHUNK_LIMIT = 5000
 MAX_CHUNKS = 5

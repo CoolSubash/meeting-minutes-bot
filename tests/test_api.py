@@ -3,11 +3,11 @@ from datetime import datetime, timezone
 
 import pytest
 
-import app as app_module
-import pipeline_metrics
-import storage
-from errors import PipelineError
-from exports import to_ics, to_markdown
+from minutes_bot import app as app_module
+from minutes_bot import pipeline_metrics
+from minutes_bot import storage
+from minutes_bot.errors import PipelineError
+from minutes_bot.exports import to_ics, to_markdown
 
 TRANSCRIPT = "We decided to launch on March 3. Sarah will send the budget by Friday."
 

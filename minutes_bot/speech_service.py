@@ -11,7 +11,7 @@ import wave
 
 import azure.cognitiveservices.speech as speechsdk
 
-from errors import PipelineError
+from .errors import PipelineError
 
 ALLOWED_EXTENSIONS = {"wav", "mp3", "webm", "ogg", "m4a", "aac"}
 MAX_AUDIO_SECONDS = 180
@@ -28,12 +28,30 @@ def _speech_config() -> speechsdk.SpeechConfig:
     return speechsdk.SpeechConfig(subscription=key, region=region)
 
 
+def ffmpeg_path() -> str | None:
+    """Use a system ffmpeg if there is one, otherwise the binary bundled by imageio-ffmpeg.
+
+    The bundled binary means App Service does not have to apt-get ffmpeg on every start,
+    which used up the F1 plan's daily CPU quota.
+    """
+    found = shutil.which("ffmpeg")
+    if found:
+        return found
+    try:
+        import imageio_ffmpeg
+
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except (ImportError, RuntimeError):
+        return None
+
+
 def prepare_audio(source_path: str, output_path: str) -> str:
     """Convert any supported upload to 16 kHz, 16-bit, mono WAV."""
-    if not shutil.which("ffmpeg"):
+    ffmpeg = ffmpeg_path()
+    if not ffmpeg:
         raise PipelineError("ffmpeg is not installed on the server.", 500)
     command = [
-        "ffmpeg", "-y", "-loglevel", "error", "-i", source_path,
+        ffmpeg, "-y", "-loglevel", "error", "-i", source_path,
         "-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", output_path,
     ]
     try:

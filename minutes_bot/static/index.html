@@ -1,0 +1,623 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meeting Minutes Bot</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230f5c4d'/%3E%3Cpath d='M6 10.5v3M10 7.5v9M14 9.5v5M18 8v8' stroke='%23fff' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+  :root {
+    color-scheme: light;
+    --ink:#1b2422; --muted:#5c6763; --faint:#7a8480; --line:#e1ddd3; --line-strong:#cbc6b9;
+    --bg:#f6f3ec; --card:#fffdf9; --sunken:#f0ece2;
+    --accent:#0f5c4d; --accent-dark:#0a4539; --accent-soft:#e0ede8;
+    --warn:#8a4b00; --warn-soft:#fbeed8; --bad:#a8281f; --bad-soft:#fbe9e6;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --shadow:0 1px 2px rgba(27,36,34,.05),0 8px 24px rgba(27,36,34,.05);
+  }
+  * { box-sizing:border-box; }
+  html { -webkit-text-size-adjust:100%; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.55 var(--sans); }
+  h1,h2,h3,p { margin:0; }
+  button,input,select { font:inherit; color:inherit; }
+  [hidden] { display:none !important; }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+
+  .brand { display:inline-flex; align-items:center; gap:10px; font:600 19px/1 var(--serif); white-space:nowrap; }
+  #results { scroll-margin-top:88px; }
+  .brand-mark { display:grid; place-items:center; width:32px; height:32px; border-radius:8px; background:var(--accent); color:#fff; }
+  .brand-mark svg { width:18px; height:18px; }
+
+  label.field { display:block; font-size:14px; font-weight:600; }
+  .field input,.field select { display:block; width:100%; height:44px; margin-top:6px; padding:0 12px; border:1px solid var(--line-strong); border-radius:8px; background:#fff; font-weight:400; }
+  .field input:focus,.field select:focus { outline:2px solid var(--accent); outline-offset:0; border-color:var(--accent); }
+  .hint { margin-top:6px; color:var(--muted); font-size:13px; font-weight:400; }
+
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:40px; padding:0 14px; border:1px solid var(--line-strong); border-radius:8px; background:var(--card); color:var(--ink); font-size:14px; font-weight:600; text-decoration:none; white-space:nowrap; cursor:pointer; transition:background .15s,border-color .15s; }
+  .btn:hover { background:var(--sunken); }
+  .btn svg { width:16px; height:16px; }
+  .btn-primary { min-height:46px; border-color:var(--accent); background:var(--accent); color:#fff; font-size:15px; }
+  .btn-primary:hover { border-color:var(--accent-dark); background:var(--accent-dark); }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+  .btn-block { width:100%; }
+
+  /* Sign in and create account */
+  .auth { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); min-height:100vh; }
+  .auth-story { display:flex; flex-direction:column; justify-content:space-between; gap:40px; padding:40px clamp(32px,6vw,80px); background:var(--accent-dark); color:#eef5f2; }
+  .auth-story .brand-mark { background:#eef5f2; color:var(--accent-dark); }
+  .auth-story h1 { max-width:13em; font:500 clamp(32px,4vw,46px)/1.12 var(--serif); letter-spacing:-.01em; }
+  .auth-story .lede { max-width:30em; margin-top:16px; color:#c5d9d2; font-size:17px; }
+  .sample { max-width:440px; padding:20px 22px; border-radius:12px; background:var(--card); color:var(--ink); box-shadow:0 18px 40px rgba(0,0,0,.22); }
+  .sample-head { display:flex; justify-content:space-between; gap:12px; padding-bottom:12px; border-bottom:1px solid var(--line); font:600 16px var(--serif); }
+  .sample-head span { color:var(--muted); font:400 13px var(--sans); white-space:nowrap; }
+  .sample h2 { margin:14px 0 4px; color:var(--muted); font-size:12px; font-weight:600; }
+  .sample p { font-size:14px; }
+  .sample-task { display:flex; justify-content:space-between; gap:12px; font-size:14px; }
+  .sample-task span { color:var(--muted); white-space:nowrap; }
+
+  .auth-panel { display:grid; place-items:center; padding:40px 24px; }
+  .auth-card { width:100%; max-width:400px; }
+  .auth-card h2 { font:500 30px/1.2 var(--serif); }
+  .auth-card > p { margin:6px 0 24px; color:var(--muted); }
+  .segmented { display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-bottom:24px; padding:4px; border-radius:10px; background:var(--sunken); }
+  .segmented button { min-height:38px; border:0; border-radius:7px; background:transparent; color:var(--muted); font-size:14px; font-weight:600; cursor:pointer; }
+  .segmented button[aria-pressed="true"] { background:var(--card); color:var(--ink); box-shadow:0 1px 3px rgba(27,36,34,.14); }
+  #auth-form { display:grid; gap:16px; }
+  .password-wrap { position:relative; }
+  .password-wrap input { padding-right:64px; }
+  .password-toggle { position:absolute; top:6px; right:6px; height:32px; padding:0 8px; border:0; border-radius:6px; background:transparent; color:var(--accent); font-size:13px; font-weight:600; cursor:pointer; }
+  .form-error { padding:10px 12px; border-radius:8px; background:var(--bad-soft); color:var(--bad); font-size:14px; font-weight:500; }
+
+  /* Workspace */
+  .topbar { position:sticky; top:0; z-index:5; border-bottom:1px solid var(--line); background:rgba(246,243,236,.94); backdrop-filter:blur(8px); }
+  .topbar-inner { display:flex; align-items:center; justify-content:space-between; gap:16px; max-width:1200px; min-height:64px; margin:0 auto; padding:0 24px; }
+  .account { display:flex; align-items:center; gap:12px; min-width:0; }
+  .avatar { flex:none; display:grid; place-items:center; width:36px; height:36px; border-radius:50%; background:var(--accent-soft); color:var(--accent-dark); font-weight:700; }
+  .account-text { min-width:0; line-height:1.25; }
+  .account-text strong,.account-text span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px; }
+  .account-text strong { font-size:14px; }
+  .account-text span { color:var(--muted); font-size:13px; }
+
+  .workspace { display:grid; grid-template-columns:minmax(0,1fr) 340px; align-items:start; gap:24px; max-width:1200px; margin:0 auto; padding:32px 24px 64px; }
+  .column { display:grid; gap:24px; min-width:0; }
+  .card { min-width:0; padding:24px; border:1px solid var(--line); border-radius:14px; background:var(--card); box-shadow:var(--shadow); }
+  .card-title { font:500 23px/1.25 var(--serif); }
+  .card-sub { margin-top:2px; color:var(--muted); font-size:15px; }
+
+  .fields { display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) minmax(0,1fr); gap:14px; margin-top:20px; }
+  .capture { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:18px; }
+  .tile { position:relative; display:flex; align-items:center; gap:14px; width:100%; min-height:84px; padding:14px 16px; border:1.5px dashed var(--line-strong); border-radius:12px; background:transparent; text-align:left; cursor:pointer; transition:background .15s,border-color .15s; }
+  .tile:hover,.tile:focus-within { border-color:var(--accent); background:var(--accent-soft); }
+  .tile.selected { border-style:solid; border-color:var(--accent); background:var(--accent-soft); }
+  .tile.recording { border-style:solid; border-color:var(--bad); background:var(--bad-soft); }
+  .tile-icon { flex:none; display:grid; place-items:center; width:42px; height:42px; border-radius:50%; background:var(--accent); color:#fff; }
+  .tile-icon svg { width:20px; height:20px; }
+  .tile.recording .tile-icon { background:var(--bad); animation:pulse 1.4s ease-in-out infinite; }
+  .tile-text { min-width:0; }
+  .tile-text strong { display:block; font-size:15px; }
+  .tile-text span { display:block; overflow:hidden; color:var(--muted); font-size:13px; font-weight:400; text-overflow:ellipsis; white-space:nowrap; }
+  .tile input[type=file] { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; }
+  #submit { width:100%; margin-top:18px; }
+  #status { margin-top:12px; color:var(--muted); font-size:14px; }
+  #status:empty { display:none; }
+  #status.error { padding:10px 12px; border-radius:8px; background:var(--bad-soft); color:var(--bad); font-weight:500; }
+  #status.busy { display:flex; align-items:center; gap:10px; }
+  #status.busy::before { content:""; flex:none; width:16px; height:16px; border:2px solid var(--line-strong); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @keyframes pulse { 50% { box-shadow:0 0 0 7px rgba(168,40,31,.16); } }
+
+  .result-head { display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:14px; }
+  .result-head > div:first-child { min-width:0; flex:1 1 260px; overflow-wrap:anywhere; }
+  .actions { display:flex; flex-wrap:wrap; gap:8px; }
+  audio { display:block; width:100%; height:40px; margin-top:18px; }
+  .stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); margin-top:20px; border:1px solid var(--line); border-radius:10px; background:var(--sunken); }
+  .stat { padding:12px 14px; border-left:1px solid var(--line); }
+  .stat:first-child { border-left:0; }
+  .stat b { display:block; font:500 24px/1.15 var(--serif); }
+  .stat span { color:var(--muted); font-size:13px; }
+  .block { margin-top:26px; }
+  .block h3 { margin-bottom:10px; font:600 17px var(--serif); }
+  .decisions { display:grid; gap:8px; margin:0; padding:0; list-style:none; }
+  .decisions li { padding:10px 14px; border-left:3px solid var(--accent); border-radius:0 8px 8px 0; background:var(--accent-soft); overflow-wrap:anywhere; }
+  .decisions li.none,.empty { border:0; background:transparent; padding:0; color:var(--muted); font-size:15px; }
+  .table-wrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:15px; }
+  th { padding:8px 10px; border-bottom:1px solid var(--line-strong); color:var(--muted); font-size:13px; font-weight:600; text-align:left; white-space:nowrap; }
+  td { padding:11px 10px; border-bottom:1px solid var(--line); vertical-align:top; overflow-wrap:anywhere; }
+  tr:last-child td { border-bottom:0; }
+  .muted { color:var(--faint); }
+  .badge { display:inline-block; padding:2px 9px; border-radius:999px; background:var(--accent-soft); color:var(--accent-dark); font-size:13px; font-weight:600; white-space:nowrap; }
+  .badge.review { background:var(--warn-soft); color:var(--warn); }
+  details { margin-top:12px; border-top:1px solid var(--line); }
+  details:first-of-type { margin-top:26px; }
+  summary { padding:12px 0 0; font:600 16px var(--serif); cursor:pointer; }
+  .detail-body { padding:10px 0 4px; }
+  .tags { display:flex; flex-wrap:wrap; gap:6px; }
+  .tag { padding:3px 10px; border-radius:999px; background:var(--sunken); font-size:14px; overflow-wrap:anywhere; }
+  #transcript { color:#36423e; overflow-wrap:anywhere; }
+
+  .history { position:sticky; top:88px; max-height:calc(100vh - 112px); display:flex; flex-direction:column; padding:20px 12px 12px; }
+  .history .card-title { padding:0 10px; font-size:20px; }
+  #history { display:grid; gap:2px; margin:12px 0 0; padding:0; overflow-y:auto; list-style:none; }
+  .history-item { display:flex; align-items:center; gap:4px; border-radius:9px; }
+  .history-item:hover { background:var(--sunken); }
+  .history-item.active { background:var(--accent-soft); }
+  .history-open { flex:1; min-width:0; padding:10px; border:0; border-radius:9px; background:transparent; text-align:left; cursor:pointer; }
+  .history-open strong { display:block; overflow:hidden; font-size:15px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
+  .history-open span { color:var(--muted); font-size:13px; }
+  .icon-btn { flex:none; display:grid; place-items:center; width:36px; height:36px; margin-right:4px; border:0; border-radius:8px; background:transparent; color:var(--faint); cursor:pointer; }
+  .icon-btn:hover { background:var(--bad-soft); color:var(--bad); }
+  .icon-btn svg { width:17px; height:17px; }
+  #history-empty { padding:10px; color:var(--muted); font-size:15px; }
+
+  @media (max-width:980px) {
+    .workspace { grid-template-columns:minmax(0,1fr); }
+    .history { position:static; max-height:none; }
+  }
+  @media (max-width:820px) {
+    .auth { grid-template-columns:minmax(0,1fr); min-height:0; }
+    .auth-story { gap:20px; padding:24px 16px 28px; }
+    .auth-story h1 { font-size:30px; }
+    .auth-story .lede { margin-top:8px; font-size:16px; }
+    .sample { display:none; }
+    .auth-panel { padding:28px 16px 40px; }
+  }
+  @media (max-width:640px) {
+    .topbar-inner { min-height:58px; padding:0 16px; }
+    .brand { font-size:17px; }
+    .account-text,.avatar { display:none; }
+    #results { scroll-margin-top:72px; }
+    .workspace { gap:16px; padding:16px 16px 48px; }
+    .column { gap:16px; }
+    .card { padding:18px 16px; }
+    .fields,.capture { grid-template-columns:minmax(0,1fr); }
+    .stats { grid-template-columns:1fr 1fr; }
+    .stat:nth-child(3) { border-left:0; }
+    .stat:nth-child(n+3) { border-top:1px solid var(--line); }
+    .actions,.actions .btn { width:100%; }
+    #items-table thead { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+    #items-table tr { display:block; padding:10px 0; border-bottom:1px solid var(--line); }
+    #items-table tr:last-child { border-bottom:0; }
+    #items-table td { display:flex; justify-content:space-between; gap:16px; padding:3px 0; border:0; text-align:right; }
+    #items-table td::before { content:attr(data-label); flex:none; color:var(--muted); font-size:13px; }
+    #items-table td:first-child { display:block; padding-bottom:6px; font-weight:600; text-align:left; }
+    #items-table td:first-child::before { content:none; }
+  }
+  @media (prefers-reduced-motion:reduce) {
+    *,*::before { animation-duration:0s !important; transition:none !important; scroll-behavior:auto !important; }
+    #status.busy::before { border-top-color:var(--line-strong); }
+  }
+</style>
+</head>
+<body>
+
+<div id="auth-view" class="auth" hidden>
+  <aside class="auth-story">
+    <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 10v4M9 6v12M14 9v6M19 7v10"/></svg></span>Meeting Minutes Bot</div>
+    <div>
+      <h1>Leave every meeting knowing who does what.</h1>
+      <p class="lede">Record a short meeting and get the decisions, tasks, owners, and due dates in one place.</p>
+    </div>
+    <div class="sample" aria-label="Example of finished meeting minutes">
+      <div class="sample-head">Sprint planning <span>Example</span></div>
+      <h2>Decision</h2>
+      <p>Launch the beta on Monday</p>
+      <h2>Action item</h2>
+      <div class="sample-task">Finish the login page <span>Maya · Friday</span></div>
+    </div>
+  </aside>
+
+  <main class="auth-panel">
+    <div class="auth-card">
+      <h2 id="auth-title">Welcome back</h2>
+      <p id="auth-sub">Sign in to see your meetings.</p>
+      <div class="segmented" role="group" aria-label="Account options">
+        <button id="tab-signin" type="button" aria-pressed="true">Sign in</button>
+        <button id="tab-signup" type="button" aria-pressed="false">Sign up</button>
+      </div>
+      <form id="auth-form">
+        <label id="name-field" class="field" hidden>Full name
+          <input id="auth-name" name="name" maxlength="80" autocomplete="name" required disabled>
+        </label>
+        <label class="field">Email
+          <input id="auth-email" name="email" type="email" maxlength="254" autocomplete="email" required>
+        </label>
+        <div>
+          <label class="field" for="auth-password">Password</label>
+          <div class="field password-wrap">
+            <input id="auth-password" name="password" type="password" maxlength="128" autocomplete="current-password" aria-describedby="password-hint" required>
+            <button id="password-toggle" class="password-toggle" type="button" aria-label="Show password" aria-pressed="false">Show</button>
+          </div>
+          <p id="password-hint" class="hint" hidden>Use at least 8 characters.</p>
+        </div>
+        <p id="auth-error" class="form-error" role="alert" hidden></p>
+        <button id="auth-submit" class="btn btn-primary btn-block" type="submit">Sign in</button>
+      </form>
+    </div>
+  </main>
+</div>
+
+<div id="app-view" hidden>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 10v4M9 6v12M14 9v6M19 7v10"/></svg></span>Meeting Minutes Bot</div>
+      <div class="account">
+        <span id="avatar" class="avatar" aria-hidden="true"></span>
+        <div class="account-text"><strong id="user-name"></strong><span id="user-email"></span></div>
+        <button id="signout" class="btn" type="button">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <div class="column">
+      <section class="card" aria-labelledby="new-heading">
+        <h1 id="new-heading" class="card-title">New meeting</h1>
+        <p class="card-sub">Add a recording of up to 3 minutes.</p>
+        <div class="fields">
+          <label class="field">Title <input id="title" maxlength="120" placeholder="Sprint planning"></label>
+          <label class="field">Meeting date <input id="date" type="date"></label>
+          <label class="field">Recap voice
+            <select id="voice">
+              <option value="en-US-JennyNeural">Jenny (friendly)</option>
+              <option value="en-US-GuyNeural">Guy (formal)</option>
+              <option value="en-US-AriaNeural">Aria (energetic)</option>
+            </select>
+          </label>
+        </div>
+        <div class="capture">
+          <button id="record" class="tile" type="button">
+            <span class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>
+            <span class="tile-text"><strong id="record-label">Record now</strong><span id="timer" aria-live="polite">Use your microphone</span></span>
+          </button>
+          <label id="file-tile" class="tile">
+            <span class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg></span>
+            <span class="tile-text"><strong>Upload audio</strong><span id="file-name">Choose or drop a file</span></span>
+            <input id="file" type="file" accept=".wav,.mp3,.webm,.ogg,.m4a,.aac,audio/*" aria-label="Upload audio file">
+          </label>
+        </div>
+        <button id="submit" class="btn btn-primary" type="button" disabled>Create minutes</button>
+        <p id="status" role="status"></p>
+      </section>
+
+      <section id="results" class="card" aria-labelledby="results-title" hidden>
+        <div class="result-head">
+          <div>
+            <h2 id="results-title" class="card-title"></h2>
+            <p id="result-meta" class="card-sub"></p>
+          </div>
+          <div class="actions">
+            <a id="export-md" class="btn">Download notes</a>
+            <a id="export-ics" class="btn">Add to calendar</a>
+          </div>
+        </div>
+        <audio id="player" controls hidden aria-label="Spoken recap"></audio>
+        <div class="stats">
+          <div class="stat"><b id="stat-decisions"></b><span>Decisions</span></div>
+          <div class="stat"><b id="stat-items"></b><span>Action items</span></div>
+          <div class="stat"><b id="stat-review"></b><span>Need review</span></div>
+          <div class="stat"><b id="stat-confidence"></b><span>Confidence</span></div>
+        </div>
+        <div class="block"><h3>Decisions</h3><ul id="decisions" class="decisions"></ul></div>
+        <div class="block">
+          <h3>Action items</h3>
+          <p id="items-empty" class="empty" hidden>No action items found.</p>
+          <div id="items-wrap" class="table-wrap"><table id="items-table"><thead><tr><th>Task</th><th>Owner</th><th>Due</th><th>Status</th></tr></thead><tbody id="items"></tbody></table></div>
+        </div>
+        <details><summary>Transcript</summary><div class="detail-body"><p id="transcript"></p></div></details>
+        <details><summary>Key phrases</summary><div class="detail-body"><div id="phrases" class="tags"></div></div></details>
+        <details><summary>Names, dates, and other entities</summary><div class="detail-body table-wrap"><table><thead><tr><th>Text</th><th>Type</th><th>Confidence</th></tr></thead><tbody id="entities"></tbody></table></div></details>
+      </section>
+    </div>
+
+    <aside class="card history" aria-labelledby="history-heading">
+      <h2 id="history-heading" class="card-title">Your meetings</h2>
+      <ul id="history"></ul>
+      <p id="history-empty" hidden>Your saved meetings will appear here.</p>
+    </aside>
+  </main>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const MAX_SECONDS = 180;
+const TRASH_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5"/></svg>';
+let authMode = "signin", recorder, recordedBlob = null, timerId, activeMeetingId = null;
+
+async function api(path, options) {
+  const response = await fetch(path, options);
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.error || "The request failed. Please try again.");
+  return body;
+}
+
+function postJson(path, data) {
+  return api(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+}
+
+function formatDate(value) {
+  const [year, month, day] = String(value).split("-").map(Number);
+  if (!year || !month || !day) return value;
+  return new Date(year, month - 1, day).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function plural(count, word) { return `${count} ${word}${count === 1 ? "" : "s"}`; }
+function fill(id, nodes) { $(id).replaceChildren(...nodes); }
+function element(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+function cell(row, value, label, className) {
+  const td = element("td", className, value);
+  if (label) td.dataset.label = label;
+  row.appendChild(td);
+  return td;
+}
+
+/* Sign in and sign up */
+function setAuthMode(mode) {
+  authMode = mode;
+  const signingUp = mode === "signup";
+  $("tab-signin").setAttribute("aria-pressed", String(!signingUp));
+  $("tab-signup").setAttribute("aria-pressed", String(signingUp));
+  $("auth-title").textContent = signingUp ? "Create your account" : "Welcome back";
+  $("auth-sub").textContent = signingUp ? "Keep your meeting minutes in one private place." : "Sign in to see your meetings.";
+  $("auth-submit").textContent = signingUp ? "Create account" : "Sign in";
+  $("name-field").hidden = !signingUp;
+  $("auth-name").disabled = !signingUp;
+  $("password-hint").hidden = !signingUp;
+  $("auth-password").autocomplete = signingUp ? "new-password" : "current-password";
+  if (signingUp) $("auth-password").minLength = 8; else $("auth-password").removeAttribute("minlength");
+  $("auth-error").hidden = true;
+}
+$("tab-signin").addEventListener("click", () => { setAuthMode("signin"); $("auth-email").focus(); });
+$("tab-signup").addEventListener("click", () => { setAuthMode("signup"); $("auth-name").focus(); });
+
+$("password-toggle").addEventListener("click", () => {
+  const show = $("auth-password").type === "password";
+  $("auth-password").type = show ? "text" : "password";
+  $("password-toggle").textContent = show ? "Hide" : "Show";
+  $("password-toggle").setAttribute("aria-label", show ? "Hide password" : "Show password");
+  $("password-toggle").setAttribute("aria-pressed", String(show));
+});
+
+$("auth-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  const button = $("auth-submit"), label = button.textContent;
+  button.disabled = true;
+  button.textContent = authMode === "signup" ? "Creating account..." : "Signing in...";
+  $("auth-error").hidden = true;
+  try {
+    const data = { email: $("auth-email").value, password: $("auth-password").value };
+    if (authMode === "signup") data.name = $("auth-name").value;
+    const { user } = await postJson(`/auth/${authMode}`, data);
+    $("auth-form").reset();
+    showWorkspace(user);
+  } catch (error) {
+    $("auth-error").textContent = error.message;
+    $("auth-error").hidden = false;
+  } finally {
+    button.disabled = false;
+    button.textContent = label;
+  }
+});
+
+$("signout").addEventListener("click", async () => {
+  $("signout").disabled = true;
+  try {
+    await api("/auth/signout", { method: "POST" });
+    location.reload();
+  } catch (error) {
+    $("signout").disabled = false;
+    setStatus(error.message, "error");
+  }
+});
+
+function showWorkspace(user) {
+  $("auth-view").hidden = true;
+  $("app-view").hidden = false;
+  $("user-name").textContent = user.name;
+  $("user-email").textContent = user.email;
+  $("avatar").textContent = user.name.trim().charAt(0).toUpperCase();
+  window.scrollTo(0, 0);
+  loadHistory();
+}
+
+/* New meeting */
+function setStatus(message, state = "") {
+  $("status").textContent = message;
+  $("status").className = state;
+}
+function refreshSubmit() { $("submit").disabled = !(recordedBlob || $("file").files.length); }
+function clock(seconds) { return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`; }
+
+$("date").value = new Date().toLocaleDateString("en-CA");
+
+$("record").addEventListener("click", async () => {
+  if (recorder && recorder.state === "recording") { recorder.stop(); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const chunks = [];
+    let seconds = 0;
+    recorder = new MediaRecorder(stream);
+    recorder.ondataavailable = event => chunks.push(event.data);
+    recorder.onstop = () => {
+      clearInterval(timerId);
+      stream.getTracks().forEach(track => track.stop());
+      recordedBlob = new Blob(chunks, { type: recorder.mimeType });
+      $("file").value = "";
+      $("file-name").textContent = "Choose or drop a file";
+      $("file-tile").classList.remove("selected");
+      $("record").classList.remove("recording");
+      $("record").classList.add("selected");
+      $("record-label").textContent = "Record again";
+      $("timer").textContent = `Recording ready (${clock(seconds)})`;
+      refreshSubmit();
+    };
+    recorder.start();
+    setStatus("");
+    $("record").classList.remove("selected");
+    $("record").classList.add("recording");
+    $("record-label").textContent = "Stop recording";
+    $("timer").textContent = `${clock(0)} of ${clock(MAX_SECONDS)}`;
+    timerId = setInterval(() => {
+      seconds += 1;
+      $("timer").textContent = `${clock(seconds)} of ${clock(MAX_SECONDS)}`;
+      if (seconds >= MAX_SECONDS) recorder.stop();
+    }, 1000);
+  } catch {
+    setStatus("Microphone access was blocked. Allow it in your browser, or upload a file.", "error");
+  }
+});
+
+$("file").addEventListener("change", () => {
+  const file = $("file").files[0];
+  $("file-tile").classList.toggle("selected", Boolean(file));
+  $("file-name").textContent = file ? file.name : "Choose or drop a file";
+  if (file) {
+    recordedBlob = null;
+    $("record").classList.remove("selected");
+    $("record-label").textContent = "Record now";
+    $("timer").textContent = "Use your microphone";
+  }
+  refreshSubmit();
+});
+
+$("submit").addEventListener("click", async () => {
+  const form = new FormData();
+  if (recordedBlob) {
+    const extension = recordedBlob.type.includes("ogg") ? "ogg" : recordedBlob.type.includes("mp4") ? "m4a" : "webm";
+    form.append("audio", recordedBlob, `recording.${extension}`);
+  } else {
+    form.append("audio", $("file").files[0]);
+  }
+  form.append("title", $("title").value);
+  form.append("meeting_date", $("date").value);
+  form.append("voice", $("voice").value);
+
+  $("submit").disabled = true;
+  setStatus("Creating your minutes. This can take a few minutes.", "busy");
+  try {
+    const meeting = await api("/process", { method: "POST", body: form });
+    showMeeting(meeting);
+    setStatus("Your minutes are ready.");
+    loadHistory();
+  } catch (error) {
+    setStatus(error.message, "error");
+  } finally {
+    refreshSubmit();
+  }
+});
+
+/* Results */
+function showMeeting(meeting) {
+  activeMeetingId = meeting.meeting_id;
+  const items = meeting.action_items || [], decisions = meeting.decisions || [];
+  const toReview = items.filter(item => item.needs_review).length;
+  const tone = meeting.sentiment.label.charAt(0).toUpperCase() + meeting.sentiment.label.slice(1);
+
+  $("results").hidden = false;
+  $("results-title").textContent = meeting.title;
+  $("result-meta").textContent = `${formatDate(meeting.meeting_date)} · ${tone} tone`;
+  $("export-md").href = `/meetings/${encodeURIComponent(meeting.meeting_id)}/export?format=md`;
+  $("export-ics").href = `/meetings/${encodeURIComponent(meeting.meeting_id)}/export?format=ics`;
+  $("export-ics").hidden = !items.some(item => item.due_date);
+
+  $("player").hidden = !meeting.summary_audio;
+  if (meeting.summary_audio) $("player").src = "data:audio/mp3;base64," + meeting.summary_audio;
+  else $("player").removeAttribute("src");
+
+  $("stat-decisions").textContent = decisions.length;
+  $("stat-items").textContent = items.length;
+  $("stat-review").textContent = toReview;
+  $("stat-confidence").textContent = `${Math.round(meeting.confidence * 100)}%`;
+
+  fill("decisions", decisions.length
+    ? decisions.map(decision => element("li", "", decision.text))
+    : [element("li", "none", "No decisions found.")]);
+
+  $("items-empty").hidden = items.length > 0;
+  $("items-wrap").hidden = items.length === 0;
+  fill("items", items.map(item => {
+    const row = document.createElement("tr");
+    cell(row, item.task, "Task");
+    cell(row, item.owner || "Unassigned", "Owner", item.owner ? "" : "muted");
+    cell(row, item.due_date ? formatDate(item.due_date) : "No date", "Due", item.due_date ? "" : "muted");
+    cell(row, "", "Status").appendChild(element("span", item.needs_review ? "badge review" : "badge", item.needs_review ? "Needs review" : "Ready"));
+    return row;
+  }));
+
+  $("transcript").textContent = meeting.transcript;
+  fill("phrases", (meeting.key_phrases || []).map(phrase => element("span", "tag", phrase)));
+  fill("entities", (meeting.entities || []).map(entity => {
+    const row = document.createElement("tr");
+    cell(row, entity.text); cell(row, entity.category); cell(row, `${Math.round(entity.confidence * 100)}%`);
+    return row;
+  }));
+  markActiveMeeting();
+  $("results").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+/* History */
+function markActiveMeeting() {
+  document.querySelectorAll(".history-item").forEach(item => {
+    item.classList.toggle("active", item.dataset.id === activeMeetingId);
+  });
+}
+
+async function openMeeting(meetingId) {
+  try {
+    showMeeting(await api(`/meetings/${encodeURIComponent(meetingId)}`));
+  } catch (error) {
+    setStatus(error.message, "error");
+  }
+}
+
+async function removeMeeting(meeting) {
+  if (!confirm(`Delete "${meeting.title}"? This cannot be undone.`)) return;
+  try {
+    await api(`/meetings/${encodeURIComponent(meeting.meeting_id)}`, { method: "DELETE" });
+    if (activeMeetingId === meeting.meeting_id) { activeMeetingId = null; $("results").hidden = true; }
+    loadHistory();
+  } catch (error) {
+    setStatus(error.message, "error");
+  }
+}
+
+async function loadHistory() {
+  try {
+    const { meetings } = await api("/meetings");
+    $("history-empty").hidden = meetings.length > 0;
+    fill("history", meetings.map(meeting => {
+      const item = element("li", "history-item");
+      item.dataset.id = meeting.meeting_id;
+      const open = element("button", "history-open");
+      open.type = "button";
+      open.append(element("strong", "", meeting.title), element("span", "", `${formatDate(meeting.meeting_date)} · ${plural(meeting.action_item_count, "task")}`));
+      open.addEventListener("click", () => openMeeting(meeting.meeting_id));
+      const remove = element("button", "icon-btn");
+      remove.type = "button";
+      remove.innerHTML = TRASH_ICON;
+      remove.setAttribute("aria-label", `Delete ${meeting.title}`);
+      remove.addEventListener("click", () => removeMeeting(meeting));
+      item.append(open, remove);
+      return item;
+    }));
+    markActiveMeeting();
+  } catch (error) {
+    setStatus(error.message, "error");
+  }
+}
+
+/* Start */
+setAuthMode("signin");
+api("/auth/me")
+  .then(({ user }) => { if (user) showWorkspace(user); else $("auth-view").hidden = false; })
+  .catch(() => { $("auth-view").hidden = false; });
+</script>
+</body>
+</html>

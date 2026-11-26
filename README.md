@@ -22,12 +22,24 @@ Application Insights records traces and metrics for every stage.
 - **Track 1: Action item tracker with calendar export.** The app extracts owners and due dates, flags incomplete tasks, saves history in Cosmos DB, and exports Markdown and .ics files.
 - **Track 2: CI/CD.** GitHub Actions runs the tests on every push and deploys `main` to App Service using OpenID Connect.
 
+## Project layout
+
+```text
+app.py               entry point (gunicorn app:app)
+minutes_bot/         application package: routes, services, storage, telemetry, static UI
+tests/               pytest suite and recording fixtures
+scripts/             provision, deploy, GitHub OIDC setup, azure.sh status|pause|resume
+docs/                system design and sequence diagrams
+```
+
+See [docs/system-design.md](docs/system-design.md) for the architecture and sequence diagrams.
+
 ## Run locally
 
-You need Python 3.11 or newer, ffmpeg, and the Azure CLI.
+You need Python 3.11 or newer and the Azure CLI. ffmpeg comes from the `imageio-ffmpeg` package, and a system ffmpeg is used if one is installed.
 
 ```bash
-brew install ffmpeg azure-cli
+brew install azure-cli
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
@@ -62,6 +74,10 @@ To turn on automatic deployment after the repository is on GitHub:
 
 | Endpoint | Purpose |
 | --- | --- |
+| `POST /auth/signup` | Create an account from JSON `{ "name", "email", "password" }` |
+| `POST /auth/signin` | Sign in with JSON `{ "email", "password" }` |
+| `POST /auth/signout` | Sign out |
+| `GET /auth/me` | Get the signed-in user |
 | `POST /process` | Run the full pipeline. Form fields: `audio`, `title`, `meeting_date`, `voice` |
 | `POST /transcribe` | Transcribe an `audio` upload |
 | `POST /analyze` | Analyze JSON `{ "text": "..." }` |
@@ -76,6 +92,8 @@ To turn on automatic deployment after the repository is on GitHub:
 curl -X POST http://localhost:5001/process \
   -F "audio=@recording.wav" -F "title=Sprint planning" -F "meeting_date=2026-11-18"
 ```
+
+The web page requires an account, and each account sees only its own meetings. The API also accepts calls without a session, and those meetings are kept separate from every account.
 
 ## Observability
 
@@ -101,6 +119,14 @@ customMetrics
 ```
 
 Create the `low-stt-confidence` alert in the Azure Portal using the Part G7 steps.
+
+## Cost check
+
+```bash
+./scripts/azure.sh status   # tiers, free-tier limits, meters used this month
+./scripts/azure.sh pause    # stop the web app when you are not working on it
+./scripts/azure.sh resume
+```
 
 ## Cleanup
 

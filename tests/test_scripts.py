@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from minutes import extract_minutes
+from minutes_bot.minutes import extract_minutes
 
 SCRIPT_FILE = Path(__file__).resolve().parent / "fixtures" / "recording-scripts.md"
 SECTION = re.compile(

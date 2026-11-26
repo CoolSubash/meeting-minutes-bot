@@ -12,4 +12,5 @@ deployment_logs.zip
 .DS_Store
 .azure/
 submission/
-docs/
+docs/*
+!docs/system-design.md

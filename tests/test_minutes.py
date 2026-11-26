@@ -2,8 +2,8 @@ from datetime import date
 
 import pytest
 
-from language_service import chunk_text
-from minutes import build_summary, extract_minutes, find_due_date, split_sentences
+from minutes_bot.language_service import chunk_text
+from minutes_bot.minutes import build_summary, extract_minutes, find_due_date, split_sentences
 
 MEETING = date(2026, 11, 18)  # A Wednesday.
 
